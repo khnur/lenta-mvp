@@ -20,8 +20,9 @@ def setup_logging(level: str | None = None) -> None:
         datefmt="%H:%M:%S",
         stream=sys.stdout,
     )
-    # implicit/lightgbm are chatty at INFO during fit
-    logging.getLogger("implicit").setLevel(logging.WARNING)
+    # quiet the chatty libraries
+    for noisy in ("implicit", "httpx", "httpcore", "apscheduler"):
+        logging.getLogger(noisy).setLevel(logging.WARNING)
     _CONFIGURED = True
 
 

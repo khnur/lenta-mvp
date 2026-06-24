@@ -33,8 +33,14 @@ def build_training_matrix(
     genre_names: list[str],
     user_agg: dict,
     n_genres: int,
-) -> tuple[np.ndarray, np.ndarray]:
-    """One row per impression; label = watch fraction achieved on that item."""
+    now_epoch: float | None = None,
+    half_life_days: float = 3.0,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """One row per impression; label = watch fraction achieved on that item.
+
+    Returns (X, y, sample_weight) where sample_weight decays with row age so the
+    ranker also tracks recent behaviour.
+    """
     # --- lookups ---
     als_u = {int(u): i for i, u in enumerate(als["user_ids"])}
     als_i = {int(v): i for i, v in enumerate(als["item_ids"])}
@@ -58,6 +64,7 @@ def build_training_matrix(
 
     rows: list[list[float]] = []
     labels: list[float] = []
+    row_ts: list[float] = []
 
     # iterate per session to reconstruct running session features
     for sid, grp in ev.groupby("session_id", sort=False):
@@ -109,15 +116,24 @@ def build_training_matrix(
                 )
             )
             labels.append(float(label_lookup.get((sid, vid), 0.0)))
+            row_ts.append(float(r.tsepoch))
             seen_genres.append(pg)
 
     X = to_matrix(rows)
     y = np.asarray(labels, dtype=np.float64)
+    ts_arr = np.asarray(row_ts, dtype=np.float64)
+    if now_epoch is not None and len(ts_arr):
+        age_days = np.clip((now_epoch - ts_arr) / 86400.0, 0, None)
+        w = np.power(0.5, age_days / max(half_life_days, 1e-6))
+    else:
+        w = np.ones(len(y))
     log.info("ranker training matrix: %d rows x %d features", X.shape[0], len(FEATURE_NAMES))
-    return X, y
+    return X, y, w
 
 
-def train_ranker(X: np.ndarray, y: np.ndarray, *, seed: int = 42) -> str:
+def train_ranker(
+    X: np.ndarray, y: np.ndarray, *, sample_weight: np.ndarray | None = None, seed: int = 42
+) -> str:
     """Train a LightGBM regressor on watch-fraction; return its model string."""
     from lightgbm import LGBMRegressor
 
@@ -138,6 +154,7 @@ def train_ranker(X: np.ndarray, y: np.ndarray, *, seed: int = 42) -> str:
     model.fit(
         X,
         y,
+        sample_weight=sample_weight,
         feature_name=FEATURE_NAMES,
         categorical_feature=categorical_indices(),
     )

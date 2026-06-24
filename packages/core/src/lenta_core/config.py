@@ -43,6 +43,9 @@ class Settings(BaseSettings):
     model_reload_seconds: int = Field(default=5, alias="MODEL_RELOAD_SECONDS")
     als_candidates: int = Field(default=300, alias="ALS_CANDIDATES")
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
+    # recency weighting in training: recent behaviour dominates so the model
+    # visibly adapts when preferences shift (lower = faster adaptation).
+    recency_halflife_days: float = Field(default=3.0, alias="RECENCY_HALFLIFE_DAYS")
 
     # --- ranking / rerank knobs ---
     rerank_max_per_genre: int = Field(default=3, alias="RERANK_MAX_PER_GENRE")

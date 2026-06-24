@@ -97,21 +97,28 @@ def train_bundle(
         train, holdout = events, events  # tiny dataset fallback
     now_epoch = _epoch(events["ts"].max())
 
+    half_life = settings.recency_halflife_days
+    train_now = _epoch(train["ts"].max())
     log.info("training v%d: %d train events, %d holdout", version, len(train), len(holdout))
 
-    # ---- retrieval + baselines ----
-    als = train_als(train, user_ids, snap["item_ids"], factors=factors, seed=seed)
-    pop_ids, pop_scores = popularity_table(train, now_epoch=_epoch(cutoff))
+    # ---- retrieval + baselines (recency-weighted: recent behaviour dominates) ----
+    als = train_als(
+        train, user_ids, snap["item_ids"], factors=factors, seed=seed,
+        now_epoch=train_now, half_life_days=half_life,
+    )
+    pop_ids, pop_scores = popularity_table(train, now_epoch=train_now)
 
     user_agg = build_user_aggregates(
         train, user_ids,
         item_index=item_index,
         item_genre_matrix=snap["item_genre_matrix"],
         n_genres=n_genres,
+        now_epoch=train_now,
+        half_life_days=half_life,
     )
 
     # ---- ranker ----
-    X, y = build_training_matrix(
+    X, y, w = build_training_matrix(
         train,
         als=als,
         item_index=item_index,
@@ -123,8 +130,10 @@ def train_bundle(
         genre_names=snap["genre_names"],
         user_agg=user_agg,
         n_genres=n_genres,
+        now_epoch=train_now,
+        half_life_days=half_life,
     )
-    ranker_str = train_ranker(X, y, seed=seed)
+    ranker_str = train_ranker(X, y, sample_weight=w, seed=seed)
 
     bundle = ModelBundle(
         version=version,

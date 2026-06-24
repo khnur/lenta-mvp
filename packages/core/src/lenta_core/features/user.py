@@ -15,6 +15,8 @@ def build_user_aggregates(
     item_index: dict[int, int],
     item_genre_matrix: np.ndarray,
     n_genres: int,
+    now_epoch: float | None = None,
+    half_life_days: float = 3.0,
 ) -> dict:
     """Return aligned arrays: profile (nu x g), avg_wf, play_rate, hist_count."""
     uidx = {int(u): i for i, u in enumerate(user_ids)}
@@ -44,13 +46,17 @@ def build_user_aggregates(
             avg_wf[i] = float(wfmean.get(int(uid), 0.0))
             play_rate[i] = p / im if im > 0 else 0.0
 
-        # watch-weighted genre profile from plays
+        # recency-weighted, watch-weighted genre profile from plays
         if not plays.empty:
             rows = plays["video_id"].map(item_index)
             valid = rows.notna().to_numpy()
             r = rows[valid].to_numpy(dtype=int)
             uu = plays["user_id"][valid].map(uidx).to_numpy(dtype=int)
             w = (plays["watch_fraction"][valid].fillna(0.0).to_numpy(float) + 0.05)
+            if now_epoch is not None:
+                ts = pd.to_datetime(plays["ts"][valid], utc=True).astype("int64").to_numpy() / 1e9
+                age_days = np.clip((now_epoch - ts) / 86400.0, 0, None)
+                w = w * np.power(0.5, age_days / max(half_life_days, 1e-6))
             contrib = item_genre_matrix[r] * w[:, None]
             np.add.at(profile, uu, contrib)
         sums = profile.sum(axis=1, keepdims=True)
