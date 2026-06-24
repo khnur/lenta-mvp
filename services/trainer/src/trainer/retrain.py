@@ -17,9 +17,10 @@ from lenta_core.bootstrap import seed_database
 from lenta_core.config import settings
 from lenta_core.db import get_session
 from lenta_core.ingest import counts, prune_events
+from lenta_core.jobs import prune_jobs
 from lenta_core.logging_conf import get_logger
 from lenta_core.ml.train import train_bundle
-from lenta_core.pipeline import finish_stage, start_stage
+from lenta_core.pipeline import finish_stage, prune_runs, start_stage
 from lenta_core.registry import next_version, save_model_version
 
 log = get_logger("lenta.trainer.retrain")
@@ -60,8 +61,11 @@ def run_retrain(notes: str = "scheduled") -> tuple[int, dict]:
             s.commit()
             finish_stage(s, dp, detail={"version": version, "active": True})
 
-            # bound the events table so sustained live traffic can't grow it forever
+            # bound the append-only tables so sustained live traffic can't grow
+            # them forever (events, plus heartbeat pipeline_runs and job history)
             pruned = prune_events(s, settings.event_retention)
+            prune_runs(s, keep=500)
+            prune_jobs(s, keep=200)
             s.commit()
             if pruned:
                 log.info("pruned %d old events (retention=%d)", pruned, settings.event_retention)

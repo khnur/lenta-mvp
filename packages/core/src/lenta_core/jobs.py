@@ -6,7 +6,7 @@ pure pub/sub) gives durability and a visible history for the dashboard.
 
 from __future__ import annotations
 
-from sqlalchemy import select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from .models import Job, utcnow
@@ -46,3 +46,14 @@ def recent_jobs(session: Session, limit: int = 20) -> list[Job]:
     return list(
         session.execute(select(Job).order_by(Job.created_at.desc()).limit(limit)).scalars()
     )
+
+
+def prune_jobs(session: Session, keep: int = 200) -> int:
+    """Keep only the most recent ``keep`` job rows."""
+    max_id = session.execute(select(func.max(Job.id))).scalar()
+    if max_id is None:
+        return 0
+    threshold = max_id - keep
+    if threshold <= 0:
+        return 0
+    return session.execute(delete(Job).where(Job.id < threshold)).rowcount

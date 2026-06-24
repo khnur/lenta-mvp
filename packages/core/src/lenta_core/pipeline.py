@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from datetime import timezone
 
-from sqlalchemy import select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from .models import PipelineRun, utcnow
@@ -61,3 +61,14 @@ def recent_runs(session: Session, limit: int = 20) -> list[PipelineRun]:
             select(PipelineRun).order_by(PipelineRun.started_at.desc()).limit(limit)
         ).scalars()
     )
+
+
+def prune_runs(session: Session, keep: int = 500) -> int:
+    """Keep only the most recent ``keep`` pipeline-run rows (heartbeats accumulate)."""
+    max_id = session.execute(select(func.max(PipelineRun.id))).scalar()
+    if max_id is None:
+        return 0
+    threshold = max_id - keep
+    if threshold <= 0:
+        return 0
+    return session.execute(delete(PipelineRun).where(PipelineRun.id < threshold)).rowcount
