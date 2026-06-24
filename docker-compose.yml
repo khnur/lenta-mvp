@@ -75,8 +75,8 @@ services:
 
   dashboard:
     build:
-      context: ./services/dashboard
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/dashboard/Dockerfile
       args:
         VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
     environment:
