@@ -35,6 +35,7 @@ def build_training_matrix(
     n_genres: int,
     now_epoch: float | None = None,
     half_life_days: float = 3.0,
+    session_history_len: int = 20,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """One row per impression; label = watch fraction achieved on that item.
 
@@ -66,17 +67,23 @@ def build_training_matrix(
     labels: list[float] = []
     row_ts: list[float] = []
 
-    # iterate per session to reconstruct running session features
+    # Reconstruct running session features the SAME way serving does: session
+    # state is the genres of recently *watched* (played) items (see
+    # features.session.update_session, which the api calls on play events), capped
+    # to the same recency window. Within a session the play of the current video
+    # arrives after its impression, so there is no label leakage.
     for sid, grp in ev.groupby("session_id", sort=False):
-        seen_genres: list[int] = []
+        watched: list[int] = []
         for r in grp.itertuples(index=False):
             etype = r.event_type
             vid = int(r.video_id)
             ii = item_index.get(vid)
-            if etype != "impression" or ii is None:
-                if etype == "impression":
-                    continue
-                # clicks/plays advance nothing extra here (genre tracked on impression)
+            if ii is None:
+                continue
+            if etype == "play":
+                watched.append(int(item_primary[ii]))
+                continue
+            if etype != "impression":
                 continue
             uid = int(r.user_id)
             pg = int(item_primary[ii])
@@ -91,9 +98,10 @@ def build_training_matrix(
             content_score = float(prof @ igv) / denom
             affinity = float(prof @ igv)
 
-            # session features from prior impressions in this session
-            slen = len(seen_genres)
-            match = (seen_genres.count(pg) / slen) if slen else 0.0
+            # session features from prior watched genres (capped recency window)
+            recent = watched[-session_history_len:]
+            slen = len(recent)
+            match = (recent.count(pg) / slen) if slen else 0.0
 
             hour = int(r.hod)
             ua = uagg_idx.get(uid)
@@ -117,7 +125,6 @@ def build_training_matrix(
             )
             labels.append(float(label_lookup.get((sid, vid), 0.0)))
             row_ts.append(float(r.tsepoch))
-            seen_genres.append(pg)
 
     X = to_matrix(rows)
     y = np.asarray(labels, dtype=np.float64)

@@ -6,8 +6,8 @@ export type Variant = "treatment" | "control";
 
 export interface Health {
   status: string;
-  db: string;
-  redis: string;
+  db: boolean;
+  redis: boolean;
   model_ready: boolean;
   model_version: number | null;
 }

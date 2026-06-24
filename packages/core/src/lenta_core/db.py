@@ -55,6 +55,15 @@ def init_db() -> None:
 
 
 def reset_db() -> None:
-    """Drop and recreate every table — used by the 'reset DB' demo control."""
-    Base.metadata.drop_all(get_engine())
-    Base.metadata.create_all(get_engine())
+    """Wipe all data but keep the schema (TRUNCATE ... RESTART IDENTITY).
+
+    Used by the 'reset DB' demo control. Truncating rather than dropping means
+    concurrent api request handlers / the simulator never observe missing tables
+    mid-reset — they just briefly see empty tables, which the code handles.
+    """
+    from sqlalchemy import text
+
+    init_db()  # ensure the schema exists first
+    tables = ", ".join(t.name for t in Base.metadata.sorted_tables)
+    with get_engine().begin() as conn:
+        conn.execute(text(f"TRUNCATE TABLE {tables} RESTART IDENTITY CASCADE"))

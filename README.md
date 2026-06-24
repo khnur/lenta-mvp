@@ -220,8 +220,10 @@ single service).
 3. **trainer service** — New → same repo. Set:
    - Root directory: `/`, Builder: **Dockerfile**, path `services/trainer/Dockerfile`
    - Variables: `DATABASE_URL`, `REDIS_URL` (same refs), `API_URL` = the api
-     service's internal URL (e.g. `http://api.railway.internal:8000` or the
-     public domain), `RETRAIN_INTERVAL_MINUTES`, `SIM_DEFAULT_RATE`, `SEED_ON_BOOT=true`.
+     service's **public** URL (e.g. `https://<api>.up.railway.app`). Use the public
+     URL, not `:8000` — the api binds Railway's injected `$PORT` (not 8000), so a
+     hardcoded internal `:8000` won't resolve. Also set `RETRAIN_INTERVAL_MINUTES`,
+     `SIM_DEFAULT_RATE`, `SEED_ON_BOOT=true`.
    - This is a **worker** — no public port needed.
 4. **dashboard service** — New → same repo. Set:
    - Root directory: `services/dashboard`, Builder: **Dockerfile** (`Dockerfile`)

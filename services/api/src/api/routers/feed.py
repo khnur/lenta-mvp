@@ -10,7 +10,7 @@ from lenta_core.config import settings
 from lenta_core.features.session import read_session_features
 from lenta_core.ingest import insert_events
 from lenta_core.ml.funnel import recommend
-from lenta_core.models import Video, utcnow
+from lenta_core.models import User, Video, utcnow
 from lenta_core.schemas import FeedResponse, FunnelDebug, VideoOut
 
 from ..ab import assign_variant
@@ -71,7 +71,9 @@ def get_feed(
         for it in feed
         if it["video_id"] in vids
     ]
-    if impressions:
+    # Only log impressions for a real user (avoid a FK violation on ad-hoc /feed
+    # previews for non-existent user_ids — the funnel still returns a cold feed).
+    if impressions and db.get(User, user_id) is not None:
         insert_events(db, impressions)
         db.commit()
 

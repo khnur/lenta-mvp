@@ -59,7 +59,7 @@ def poll_jobs() -> None:
     # claim job ids in one short transaction, then process each independently
     with session_scope() as s:
         claimed: list[tuple[int, str]] = []
-        for job in queued_jobs(s):
+        for job in queued_jobs(s, lock=True):
             claim_job(s, job)
             claimed.append((job.id, job.type))
         s.commit()

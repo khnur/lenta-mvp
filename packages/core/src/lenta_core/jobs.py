@@ -19,10 +19,13 @@ def enqueue_job(session: Session, job_type: str, payload: dict | None = None) ->
     return job
 
 
-def queued_jobs(session: Session, job_type: str | None = None) -> list[Job]:
+def queued_jobs(session: Session, job_type: str | None = None, *, lock: bool = False) -> list[Job]:
     q = select(Job).where(Job.status == "queued").order_by(Job.created_at)
     if job_type:
         q = q.where(Job.type == job_type)
+    if lock:
+        # row-level lock so a second poller/replica can't claim the same job
+        q = q.with_for_update(skip_locked=True)
     return list(session.execute(q).scalars())
 
 

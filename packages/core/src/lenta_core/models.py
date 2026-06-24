@@ -109,6 +109,16 @@ class ModelVersion(Base):
     notes: Mapped[str] = mapped_column(String(512), default="")
 
 
+# At most one active model version at a time (defense-in-depth alongside the
+# trainer's retrain lock): a partial unique index over the rows where is_active.
+Index(
+    "uq_model_versions_active",
+    ModelVersion.is_active,
+    unique=True,
+    postgresql_where=ModelVersion.is_active.is_(True),
+)
+
+
 class Experiment(Base):
     """A/B assignment: one row per user, sticky variant."""
 

@@ -57,7 +57,9 @@ class AppState:
             loaded = load_active_model(session)
             if loaded:
                 mv, bundle = loaded
-                self.model.set(mv, bundle)
+                holder = ModelHolder()
+                holder.set(mv, bundle)
+                self.model = holder  # atomic swap: readers see old or new holder whole
                 log.info("loaded active model v%d (%d items)", mv.version, len(bundle.item_ids))
                 return True
         return False

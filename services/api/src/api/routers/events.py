@@ -53,17 +53,19 @@ def post_event(
     )
     db.commit()
 
-    pg = _primary_genre(state, db, ev.video_id)
-    ts = ev.ts or row.ts
-    if ts.tzinfo is None:
-        ts = ts.replace(tzinfo=timezone.utc)
-    update_session(
-        r,
-        ev.session_id,
-        user_id=ev.user_id,
-        primary_genre=pg,
-        watch_fraction=ev.watch_fraction,
-        ts_epoch=ts.timestamp(),
-        history_len=settings.session_history_len,
-    )
+    # Session state = recently *watched* genres, so only plays advance it. This
+    # matches how the trainer reconstructs session features (train/serve parity).
+    if ev.event_type == "play":
+        ts = ev.ts or row.ts
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=timezone.utc)
+        update_session(
+            r,
+            ev.session_id,
+            user_id=ev.user_id,
+            primary_genre=_primary_genre(state, db, ev.video_id),
+            watch_fraction=ev.watch_fraction,
+            ts_epoch=ts.timestamp(),
+            history_len=settings.session_history_len,
+        )
     return EventAck(event_id=row.id, session_features=read_session_features(r, ev.session_id))

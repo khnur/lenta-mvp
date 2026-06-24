@@ -132,6 +132,7 @@ def train_bundle(
         n_genres=n_genres,
         now_epoch=train_now,
         half_life_days=half_life,
+        session_history_len=settings.session_history_len,
     )
     ranker_str = train_ranker(X, y, sample_weight=w, seed=seed)
 

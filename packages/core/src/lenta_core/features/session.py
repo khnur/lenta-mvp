@@ -76,13 +76,17 @@ def read_session_features(r: Any, session_id: str) -> dict:
 
 
 def session_feature_view(session: dict, candidate_primary_genre: str) -> tuple[float, float]:
-    """Return (session_genre_match, session_len) for a candidate genre."""
+    """Return (session_genre_match, session_len) for a candidate genre.
+
+    Both use the (recency-capped) genres list as the population, matching exactly
+    how the trainer builds these features (see ranker.build_training_matrix).
+    """
     genres = session.get("genres") or []
     n = len(genres)
     if n == 0:
-        return 0.0, float(session.get("len", 0))
+        return 0.0, 0.0
     match = sum(1 for g in genres if g == candidate_primary_genre) / n
-    return float(match), float(session.get("len", n))
+    return float(match), float(n)
 
 
 def active_session_count(r: Any, *, now_epoch: float, window_seconds: int = 120) -> int:
