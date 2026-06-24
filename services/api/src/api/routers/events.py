@@ -3,7 +3,6 @@ from __future__ import annotations
 from datetime import timezone
 
 from fastapi import APIRouter, Depends
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from lenta_core.config import settings

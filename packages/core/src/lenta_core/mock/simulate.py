@@ -22,7 +22,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from .catalog import GENRE_PEAK_HOUR, genre_list
-from ..models import Event, User, Video
+from ..models import User, Video
 
 # --- engagement model constants (tuned for CTR ~0.25 baseline, clear gradient) ---
 CLICK_A = 3.2      # affinity weight

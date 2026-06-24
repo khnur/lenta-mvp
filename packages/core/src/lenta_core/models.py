@@ -18,7 +18,6 @@ from sqlalchemy import (
     Integer,
     LargeBinary,
     String,
-    func,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
