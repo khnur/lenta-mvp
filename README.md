@@ -208,29 +208,35 @@ One Railway **project** with services `api`, `trainer`, `dashboard`, plus the
 precisely so services need **no shared volume** (Railway volumes attach to a
 single service).
 
+All three services build from the **repo root** (root directory `/`) and select
+their Dockerfile via the `RAILWAY_DOCKERFILE_PATH` service variable, so the
+shared `core` package is always in the build context.
+
 1. **Create the project** and add the **PostgreSQL** and **Redis** plugins
-   (New → Database → Postgres; then → Redis). They expose `DATABASE_URL` and
-   `REDIS_URL` as service variables.
-2. **api service** — New → GitHub repo (this repo). Set:
-   - Root directory: `/` (build context is the repo root)
-   - Builder: **Dockerfile**, path `services/api/Dockerfile`
-   - Variables: `DATABASE_URL=${{Postgres.DATABASE_URL}}`,
-     `REDIS_URL=${{Redis.REDIS_URL}}` (reference the plugin variables).
-   - It binds `$PORT` automatically. Enable a public domain.
-3. **trainer service** — New → same repo. Set:
-   - Root directory: `/`, Builder: **Dockerfile**, path `services/trainer/Dockerfile`
-   - Variables: `DATABASE_URL`, `REDIS_URL` (same refs), `API_URL` = the api
-     service's **public** URL (e.g. `https://<api>.up.railway.app`). Use the public
-     URL, not `:8000` — the api binds Railway's injected `$PORT` (not 8000), so a
-     hardcoded internal `:8000` won't resolve. Also set `RETRAIN_INTERVAL_MINUTES`,
-     `SIM_DEFAULT_RATE`, `SEED_ON_BOOT=true`.
-   - This is a **worker** — no public port needed.
-4. **dashboard service** — New → same repo. Set:
-   - Root directory: `services/dashboard`, Builder: **Dockerfile** (`Dockerfile`)
-   - Build variable: `VITE_API_URL` = the api's **public** domain (baked at build).
-   - It binds `$PORT` and serves the static build.
-5. **Deploy order:** Postgres + Redis → api → trainer (seeds + trains v1 on first
-   boot) → dashboard. Open the dashboard's public URL and run the demo.
+   (`railway add -d postgres -d redis`, or New → Database in the UI).
+2. **api** — service with root directory `/` and these variables:
+   - `RAILWAY_DOCKERFILE_PATH=services/api/Dockerfile`
+   - `DATABASE_URL=${{Postgres.DATABASE_URL}}`
+   - `REDIS_URL=redis://default:${{Redis.REDIS_PASSWORD}}@redis.railway.internal:6379`
+   - `PORT=8000` (set **before** the first deploy so the generated domain maps to it)
+   - Generate a public domain targeting port 8000.
+3. **trainer** (worker, no domain) — root `/`, variables:
+   - `RAILWAY_DOCKERFILE_PATH=services/trainer/Dockerfile`
+   - `DATABASE_URL`, `REDIS_URL` (same as api)
+   - `API_URL=http://api.railway.internal:8000` (private network — trainer → api)
+   - `SEED_ON_BOOT=true`, `RETRAIN_INTERVAL_MINUTES=30`, `SIM_DEFAULT_RATE=6`
+4. **dashboard** — root `/`, variables:
+   - `RAILWAY_DOCKERFILE_PATH=services/dashboard/Dockerfile`
+   - `PORT=8080`
+   - `VITE_API_URL=https://<api-public-domain>` — the api's **public** URL, baked
+     into the static build (the browser calls it, so it must be public).
+   - Generate a public domain targeting port 8080.
+5. **Deploy order:** Postgres + Redis → api (+ domain) → trainer (seeds + trains
+   v1 on first boot) → dashboard (+ domain). Open the dashboard URL and run the demo.
+
+Tip: setting `PORT` / `VITE_API_URL` **before** the first deploy avoids a redeploy
+(those values are baked at build/boot time). CLI deploys: `railway up --service
+<name> --detach` from the repo root.
 
 > Optional upgrade: if model artifacts grow large, swap the Postgres `bytea`
 > artifact store for Cloudflare R2 — only `core/registry.py` changes.
