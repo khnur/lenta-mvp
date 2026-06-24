@@ -103,4 +103,19 @@ def evaluate_bundle(
         "diversity": round(float(np.mean(divs)), 4),
         "k": k,
         "n_users": len(users),
+        "feed_genre_share": feed_genre_share(bundle, reco_lists),
     }
+
+
+def feed_genre_share(bundle: ModelBundle, reco_lists: list[list[int]]) -> dict[str, float]:
+    """Primary-genre distribution across all recommended feeds (for 'what changed')."""
+    counts: dict[str, int] = {}
+    for rec in reco_lists:
+        for vid in rec:
+            ii = bundle.item_index(vid)
+            if ii is None:
+                continue
+            g = bundle.genre_names[int(bundle.item_primary[ii])]
+            counts[g] = counts.get(g, 0) + 1
+    total = sum(counts.values()) or 1
+    return {g: round(c / total, 4) for g, c in sorted(counts.items(), key=lambda x: -x[1])}
