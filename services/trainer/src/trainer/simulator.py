@@ -126,6 +126,35 @@ class LiveSimulator:
                     user_id, vid, "play", sid, variant, eng.watch_seconds, eng.watch_fraction
                 )
                 emitted += 1
+
+        # Organic discovery: the user also finds some content *outside* the feed
+        # (search / browse), driven purely by latent affinity. This breaks the
+        # otherwise-perfect feedback loop so offline metrics stay realistic, while
+        # the A/B lift (which comes from the recommended feed) stays intact.
+        emitted += self._organic(user_id, sid, variant, now)
+        return emitted
+
+    def _organic(self, user_id, sid, variant, now) -> int:
+        emitted = 0
+        try:
+            probs = self.world.exposure_probs(int(user_id), now)
+        except KeyError:
+            return 0
+        n = int(self.rng.integers(1, 4))  # 1-3 organically discovered items
+        picks = self.rng.choice(len(self.world.video_ids), size=n, replace=False, p=probs)
+        for vi in picks:
+            ovid = int(self.world.video_ids[int(vi)])
+            eng = self.world.engage(int(user_id), ovid, now, self.rng)
+            self._post(user_id, ovid, "impression", sid, variant, 0.0, 0.0)
+            emitted += 1
+            if eng.clicked:
+                self._post(user_id, ovid, "click", sid, variant, 0.0, 0.0)
+                emitted += 1
+            if eng.played:
+                self._post(
+                    user_id, ovid, "play", sid, variant, eng.watch_seconds, eng.watch_fraction
+                )
+                emitted += 1
         return emitted
 
     def _post(self, user_id, vid, etype, sid, variant, secs, frac) -> None:
