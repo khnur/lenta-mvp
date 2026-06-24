@@ -88,11 +88,15 @@ def train_bundle(
     )
     item_index = {int(v): i for i, v in enumerate(snap["item_ids"])}
 
-    # ---- time-based split ----
+    # ---- per-user temporal split (leave-last-out) ----
+    # Hold out each user's most-recent events, train on the rest. Unlike a single
+    # global time cutoff, this guarantees every returning user — including
+    # freshly-arrived cold-start users whose history is all recent — contributes
+    # training history, so the model can actually warm them up on the next retrain.
     events = events.sort_values("ts")
-    cutoff = events["ts"].quantile(1.0 - holdout_fraction)
-    train = events[events["ts"] <= cutoff]
-    holdout = events[events["ts"] > cutoff]
+    pct = events.groupby("user_id")["ts"].rank(method="first", pct=True)
+    train = events[pct <= (1.0 - holdout_fraction)]
+    holdout = events[pct > (1.0 - holdout_fraction)]
     if train.empty or holdout["event_type"].eq("play").sum() < 10:
         train, holdout = events, events  # tiny dataset fallback
     now_epoch = _epoch(events["ts"].max())
