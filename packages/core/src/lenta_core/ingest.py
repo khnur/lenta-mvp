@@ -5,10 +5,26 @@ from __future__ import annotations
 from datetime import timezone
 
 import pandas as pd
-from sqlalchemy import func, insert, select
+from sqlalchemy import delete, func, insert, select
 from sqlalchemy.orm import Session
 
 from .models import Event, User, Video, utcnow
+
+
+def prune_events(session: Session, keep: int) -> int:
+    """Delete all but the most recent ``keep`` events (bounds table size).
+
+    Nothing references events, so this is safe. Returns the number deleted.
+    """
+    if keep <= 0:
+        return 0
+    max_id = session.execute(select(func.max(Event.id))).scalar()
+    if max_id is None:
+        return 0
+    threshold = max_id - keep
+    if threshold <= 0:
+        return 0
+    return session.execute(delete(Event).where(Event.id < threshold)).rowcount
 
 
 def insert_users(session: Session, rows: list[dict]) -> int:

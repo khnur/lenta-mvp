@@ -14,8 +14,9 @@ from __future__ import annotations
 import threading
 
 from lenta_core.bootstrap import seed_database
+from lenta_core.config import settings
 from lenta_core.db import get_session
-from lenta_core.ingest import counts
+from lenta_core.ingest import counts, prune_events
 from lenta_core.logging_conf import get_logger
 from lenta_core.ml.train import train_bundle
 from lenta_core.pipeline import finish_stage, start_stage
@@ -58,6 +59,12 @@ def run_retrain(notes: str = "scheduled") -> tuple[int, dict]:
             )
             s.commit()
             finish_stage(s, dp, detail={"version": version, "active": True})
+
+            # bound the events table so sustained live traffic can't grow it forever
+            pruned = prune_events(s, settings.event_retention)
+            s.commit()
+            if pruned:
+                log.info("pruned %d old events (retention=%d)", pruned, settings.event_retention)
 
             log.info("retrain complete: v%d %s", version, metrics)
             return version, metrics

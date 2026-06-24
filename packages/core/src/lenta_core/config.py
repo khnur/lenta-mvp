@@ -53,6 +53,10 @@ class Settings(BaseSettings):
     # keep the serialized artifact (bytea) for only the most recent N versions;
     # older rows keep their metrics (for the timeline) but free the ~1.4 MB blob.
     keep_model_artifacts: int = Field(default=12, alias="KEEP_MODEL_ARTIFACTS")
+    # cap the events table: after each retrain, trim to the most recent N events
+    # (training only uses the recent window and metrics windows are short, so old
+    # rows are dead weight). 0 disables pruning.
+    event_retention: int = Field(default=600_000, alias="EVENT_RETENTION")
 
     # --- ranking / rerank knobs ---
     rerank_max_per_genre: int = Field(default=3, alias="RERANK_MAX_PER_GENRE")
