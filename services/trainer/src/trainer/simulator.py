@@ -38,7 +38,9 @@ class LiveSimulator:
         self.client = httpx.Client(base_url=settings.api_url, timeout=8.0)
         self.rng = np.random.default_rng(settings.seed + 7)
         self.world: World | None = None
-        self.applied_seq = get_sim(self.r)["scenario_seq"]
+        _ctl = get_sim(self.r)
+        self.applied_seq = _ctl["scenario_seq"]
+        self.reload_seq = _ctl["reload_seq"]
         self._stop = threading.Event()
         self._last_heartbeat = 0.0
         self._since_heartbeat = 0
@@ -166,6 +168,10 @@ class LiveSimulator:
         while not self._stop.is_set():
             try:
                 ctl = get_sim(self.r)
+                if ctl["reload_seq"] != self.reload_seq:
+                    self.reload_seq = ctl["reload_seq"]
+                    log.info("world reload requested -> reloading from DB")
+                    self._reload_world()
                 self._maybe_apply(ctl)
                 if not ctl["running"]:
                     time.sleep(0.5)

@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import timezone
 
 from fastapi import APIRouter, Depends
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from lenta_core.config import settings
@@ -37,21 +38,27 @@ def post_event(
     r=Depends(get_redis),
 ) -> EventAck:
     variant = ev.variant or assign_variant(db, ev.user_id)
-    row = insert_event(
-        db,
-        {
-            "user_id": ev.user_id,
-            "video_id": ev.video_id,
-            "event_type": ev.event_type,
-            "watch_seconds": ev.watch_seconds,
-            "watch_fraction": ev.watch_fraction,
-            "session_id": ev.session_id,
-            "variant": variant,
-            "ts": ev.ts,
-            "context": ev.context,
-        },
-    )
-    db.commit()
+    try:
+        row = insert_event(
+            db,
+            {
+                "user_id": ev.user_id,
+                "video_id": ev.video_id,
+                "event_type": ev.event_type,
+                "watch_seconds": ev.watch_seconds,
+                "watch_fraction": ev.watch_fraction,
+                "session_id": ev.session_id,
+                "variant": variant,
+                "ts": ev.ts,
+                "context": ev.context,
+            },
+        )
+        db.commit()
+    except IntegrityError:
+        # unknown user_id/video_id (e.g. a stale event referencing rows wiped by a
+        # reset) — never 500; just drop it.
+        db.rollback()
+        return EventAck(ok=False, event_id=0)
 
     # Session state = recently *watched* genres, so only plays advance it. This
     # matches how the trainer reconstructs session features (train/serve parity).

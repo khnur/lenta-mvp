@@ -20,6 +20,7 @@ _DEFAULTS = {
     "intensity": "1.0",
     "emitted": "0",
     "scenario_seq": "0",
+    "reload_seq": "0",
 }
 
 
@@ -35,6 +36,7 @@ def get_sim(r: Any) -> dict:
         "intensity": float(out["intensity"]),
         "emitted": int(out["emitted"]),
         "scenario_seq": int(out["scenario_seq"]),
+        "reload_seq": int(out["reload_seq"]),
     }
 
 
@@ -53,6 +55,12 @@ def request_scenario(r: Any, scenario: str, intensity: float) -> int:
     seq = r.hincrby(_KEY, "scenario_seq", 1)
     r.hset(_KEY, mapping={"scenario": scenario, "intensity": str(intensity)})
     return int(seq)
+
+
+def request_world_reload(r: Any) -> int:
+    """Ask the live simulator to reload its in-memory world from the DB (e.g.
+    after a reset wiped + reseeded the catalog/users)."""
+    return int(r.hincrby(_KEY, "reload_seq", 1))
 
 
 def incr_emitted(r: Any, n: int = 1) -> None:

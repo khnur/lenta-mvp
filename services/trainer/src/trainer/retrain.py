@@ -74,6 +74,16 @@ def run_reset(demo: bool = True) -> tuple[int, dict]:
     with _RETRAIN_LOCK:
         log.info("reset: wiping + reseeding (demo=%s)", demo)
         seed_database(demo=demo, reset=True)
+        # tell the live simulator to drop its now-stale world (old user/video ids)
+        try:
+            from redis import Redis
+
+            from lenta_core import simctl
+            from lenta_core.config import settings
+
+            simctl.request_world_reload(Redis.from_url(settings.redis_url, decode_responses=True))
+        except Exception as exc:  # noqa: BLE001
+            log.warning("could not signal sim world reload: %s", exc)
         return run_retrain(notes="reset")
 
 
