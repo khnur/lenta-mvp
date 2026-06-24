@@ -61,8 +61,14 @@ def counts(session: Session) -> dict[str, int]:
     }
 
 
-def load_events_df(session: Session, *, since_days: int | None = None) -> pd.DataFrame:
-    """Load events into a DataFrame for training / metrics."""
+def load_events_df(
+    session: Session, *, since_days: int | None = None, limit: int | None = None
+) -> pd.DataFrame:
+    """Load events into a DataFrame for training / metrics.
+
+    ``limit`` keeps only the most recent N events (bounds retrain cost under
+    sustained live traffic).
+    """
     q = select(
         Event.user_id,
         Event.video_id,
@@ -76,6 +82,8 @@ def load_events_df(session: Session, *, since_days: int | None = None) -> pd.Dat
     if since_days is not None:
         cutoff = utcnow() - pd.Timedelta(days=since_days)
         q = q.where(Event.ts >= cutoff)
+    if limit is not None:
+        q = q.order_by(Event.id.desc()).limit(limit)
     rows = session.execute(q).all()
     df = pd.DataFrame(
         rows,

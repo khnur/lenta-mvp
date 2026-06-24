@@ -78,7 +78,7 @@ def train_bundle(
     n_genres = n_genres or settings.n_genres
     seed = settings.seed if seed is None else seed
 
-    events = load_events_df(session)
+    events = load_events_df(session, limit=settings.train_max_events)
     if events.empty:
         raise ValueError("train_bundle: no events to train on (seed first)")
 

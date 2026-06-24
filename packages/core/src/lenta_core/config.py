@@ -46,6 +46,10 @@ class Settings(BaseSettings):
     # recency weighting in training: recent behaviour dominates so the model
     # visibly adapts when preferences shift (lower = faster adaptation).
     recency_halflife_days: float = Field(default=3.0, alias="RECENCY_HALFLIFE_DAYS")
+    # cap retrain input to the most recent N events so sustained live traffic
+    # can't grow training time/memory unbounded (recency weighting already
+    # discounts old events, so this loses almost nothing).
+    train_max_events: int = Field(default=150_000, alias="TRAIN_MAX_EVENTS")
 
     # --- ranking / rerank knobs ---
     rerank_max_per_genre: int = Field(default=3, alias="RERANK_MAX_PER_GENRE")
