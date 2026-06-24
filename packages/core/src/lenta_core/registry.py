@@ -9,6 +9,7 @@ from __future__ import annotations
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
+from .config import settings
 from .logging_conf import get_logger
 from .ml.artifacts import ModelBundle
 from .models import ModelVersion
@@ -47,6 +48,21 @@ def save_model_version(
         session.execute(update(ModelVersion).values(is_active=False))
         mv.is_active = True
     session.flush()
+
+    # Bound storage: free the bytea of versions older than the retention window
+    # (keep their metrics rows for the model timeline). Never touch the active one.
+    keep = max(1, settings.keep_model_artifacts)
+    freed = session.execute(
+        update(ModelVersion)
+        .where(
+            ModelVersion.version <= mv.version - keep,
+            ModelVersion.artifact_bytes > 0,
+            ModelVersion.is_active.is_(False),
+        )
+        .values(artifact=b"", artifact_bytes=0)
+    ).rowcount
+    if freed:
+        log.info("pruned artifacts of %d old model version(s)", freed)
     log.info("saved model v%d (%d bytes, active=%s)", mv.version, len(blob), set_active)
     return mv
 

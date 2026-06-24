@@ -50,6 +50,9 @@ class Settings(BaseSettings):
     # can't grow training time/memory unbounded (recency weighting already
     # discounts old events, so this loses almost nothing).
     train_max_events: int = Field(default=150_000, alias="TRAIN_MAX_EVENTS")
+    # keep the serialized artifact (bytea) for only the most recent N versions;
+    # older rows keep their metrics (for the timeline) but free the ~1.4 MB blob.
+    keep_model_artifacts: int = Field(default=12, alias="KEEP_MODEL_ARTIFACTS")
 
     # --- ranking / rerank knobs ---
     rerank_max_per_genre: int = Field(default=3, alias="RERANK_MAX_PER_GENRE")
