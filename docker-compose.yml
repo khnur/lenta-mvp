@@ -1,0 +1,90 @@
+# Local development stack: Postgres + Redis + the three services.
+# `make up` brings up infra; `make seed` seeds + trains v1; open the dashboard.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: lenta
+      POSTGRES_PASSWORD: lenta
+      POSTGRES_DB: lenta
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lenta -d lenta"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build:
+      context: .
+      dockerfile: services/api/Dockerfile
+    environment:
+      DATABASE_URL: postgresql+psycopg://lenta:lenta@postgres:5432/lenta
+      REDIS_URL: redis://redis:6379/0
+      PORT: 8000
+      LENTA_SEED: ${LENTA_SEED:-42}
+      MODEL_RELOAD_SECONDS: ${MODEL_RELOAD_SECONDS:-5}
+      ALS_CANDIDATES: ${ALS_CANDIDATES:-300}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  trainer:
+    build:
+      context: .
+      dockerfile: services/trainer/Dockerfile
+    environment:
+      DATABASE_URL: postgresql+psycopg://lenta:lenta@postgres:5432/lenta
+      REDIS_URL: redis://redis:6379/0
+      API_URL: http://api:8000
+      LENTA_SEED: ${LENTA_SEED:-42}
+      SEED_ON_BOOT: ${SEED_ON_BOOT:-true}
+      RETRAIN_INTERVAL_MINUTES: ${RETRAIN_INTERVAL_MINUTES:-5}
+      TRAINER_POLL_SECONDS: ${TRAINER_POLL_SECONDS:-3}
+      SIM_DEFAULT_RATE: ${SIM_DEFAULT_RATE:-6}
+      LENTA_N_VIDEOS: ${LENTA_N_VIDEOS:-600}
+      LENTA_N_USERS: ${LENTA_N_USERS:-400}
+      LENTA_BACKFILL_DAYS: ${LENTA_BACKFILL_DAYS:-30}
+      LENTA_BACKFILL_EVENTS: ${LENTA_BACKFILL_EVENTS:-40000}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      api:
+        condition: service_started
+
+  dashboard:
+    build:
+      context: ./services/dashboard
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
+    environment:
+      PORT: 8080
+    ports:
+      - "8080:8080"
+    depends_on:
+      - api
+
+volumes:
+  pgdata:

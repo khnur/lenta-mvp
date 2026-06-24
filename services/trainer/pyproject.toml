@@ -1,0 +1,20 @@
+[project]
+name = "lenta-trainer"
+version = "0.1.0"
+description = "Worker: seed, scheduled + manual retrain, eval, live simulator"
+requires-python = ">=3.12"
+dependencies = [
+    "lenta-core",
+    "apscheduler>=3.10,<4",
+    "httpx>=0.27,<0.29",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/trainer"]
+
+[tool.uv.sources]
+lenta-core = { workspace = true }
