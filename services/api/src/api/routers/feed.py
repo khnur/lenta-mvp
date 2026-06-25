@@ -24,7 +24,7 @@ router = APIRouter(tags=["serving"])
 def get_feed(
     user_id: int = Query(..., ge=1),
     k: int = Query(10, ge=1, le=50),
-    variant: str | None = Query(None),
+    variant: str | None = Query(None, pattern="^(control|treatment)$"),
     session_id: str | None = Query(None),
     db: Session = Depends(get_db),
     state: AppState = Depends(get_state),

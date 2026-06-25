@@ -95,14 +95,20 @@ def report(db: Session = Depends(get_db)) -> dict:
 
     cs = cm.get("feed_genre_share", {}) or {}
     ps = pm.get("feed_genre_share", {}) or {}
-    movers = sorted(
-        ((g, cs.get(g, 0) - ps.get(g, 0)) for g in set(cs) | set(ps)),
-        key=lambda x: -abs(x[1]),
-    )
+    deltas = [(g, cs.get(g, 0) - ps.get(g, 0)) for g in set(cs) | set(ps)]
+    movers = sorted(deltas, key=lambda x: -abs(x[1]))
+    risers = sorted(deltas, key=lambda x: -x[1])
     parts = [f"After retrain v{cur.version}:"]
-    if movers and abs(movers[0][1]) >= 0.01:
-        g, d = movers[0]
-        parts.append(f"{g} share of feeds {'rose' if d > 0 else 'fell'} {abs(d) * 100:.0f}%,")
+    # Lead with the biggest *rising* genre — the intuitive "X rose" story, and the
+    # one a genre_shift produces; fall back to the biggest absolute mover.
+    lead = None
+    if risers and risers[0][1] >= 0.01:
+        lead = risers[0]
+    elif movers and abs(movers[0][1]) >= 0.01:
+        lead = movers[0]
+    if lead:
+        g, d = lead
+        parts.append(f"{g} share of feeds {'rose' if d >= 0 else 'fell'} {abs(d) * 100:.0f}%,")
     parts.append(f"NDCG@10 {d_ndcg:+.3f}, recall@10 {d_recall:+.3f}.")
     return {
         "text": " ".join(parts),
