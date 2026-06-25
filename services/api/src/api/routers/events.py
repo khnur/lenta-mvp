@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import timezone
 
 from fastapi import APIRouter, Depends
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import DataError, IntegrityError
 from sqlalchemy.orm import Session
 
 from lenta_core.config import settings
@@ -54,9 +54,11 @@ def post_event(
             },
         )
         db.commit()
-    except IntegrityError:
-        # unknown user_id/video_id (e.g. a stale event referencing rows wiped by a
-        # reset) — never 500; just drop it.
+    except (IntegrityError, DataError):
+        # IntegrityError: unknown user_id/video_id (e.g. a stale event referencing
+        # rows wiped by a reset). DataError: a value that doesn't fit the column
+        # (defence-in-depth — the schema already bounds the user-facing strings).
+        # Either way, never 500; just drop the event.
         db.rollback()
         return EventAck(ok=False, event_id=0)
 

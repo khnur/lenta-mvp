@@ -51,10 +51,14 @@ class EventIn(BaseModel):
     user_id: int
     video_id: int
     event_type: Literal["impression", "click", "play"]
-    session_id: str
-    watch_seconds: float = 0.0
+    # bounded to the DB column (varchar 64) so an oversized value is rejected with
+    # a clean 422 instead of overflowing the column and surfacing as a 500.
+    session_id: str = Field(min_length=1, max_length=64)
+    watch_seconds: float = Field(0.0, ge=0.0)
     watch_fraction: float = Field(0.0, ge=0.0, le=1.0)
-    variant: str | None = None
+    # only the two A/B variants are valid; anything else (incl. an over-length
+    # string) is a 422, matching the /feed contract and never reaching the DB.
+    variant: str | None = Field(None, pattern="^(control|treatment)$")
     ts: datetime | None = None
     context: dict[str, Any] | None = None
 
@@ -133,7 +137,9 @@ class SimScenarioIn(BaseModel):
 
 
 class SimControlIn(BaseModel):
-    rate: float | None = Field(None, description="events/sec")
+    # positive and bounded: reject negative / zero / absurd rates that would
+    # either stall the simulator or hammer the API (None = keep current rate).
+    rate: float | None = Field(None, gt=0, le=1000, description="events/sec")
 
 
 class SimStatus(BaseModel):
