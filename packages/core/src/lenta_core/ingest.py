@@ -109,7 +109,10 @@ def load_events_df(
         ],
     )
     if not df.empty:
-        df["ts"] = pd.to_datetime(df["ts"], utc=True)
+        # coerce: an out-of-bounds ts (a poison event, > pandas' ~2262 limit)
+        # becomes NaT and is dropped, so one bad row can't fail the whole retrain.
+        df["ts"] = pd.to_datetime(df["ts"], utc=True, errors="coerce")
+        df = df.dropna(subset=["ts"]).reset_index(drop=True)
     return df
 
 
@@ -135,5 +138,8 @@ def load_events_df_since(session: Session, cutoff) -> pd.DataFrame:
         ],
     )
     if not df.empty:
-        df["ts"] = pd.to_datetime(df["ts"], utc=True)
+        # coerce: an out-of-bounds ts (a poison event, > pandas' ~2262 limit)
+        # becomes NaT and is dropped, so one bad row can't fail the whole retrain.
+        df["ts"] = pd.to_datetime(df["ts"], utc=True, errors="coerce")
+        df = df.dropna(subset=["ts"]).reset_index(drop=True)
     return df
