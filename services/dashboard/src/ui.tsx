@@ -82,9 +82,9 @@ export function Panel({
   return (
     <section
       data-tour={tourId}
-      className={`flex flex-col rounded-xl border border-white/5 bg-bg-panel shadow-lg shadow-black/30 ${className}`}
+      className={`flex min-w-0 flex-col rounded-xl border border-white/5 bg-bg-panel shadow-lg shadow-black/30 ${className}`}
     >
-      <header className="flex items-start justify-between gap-2 border-b border-white/5 px-4 py-3">
+      <header className="flex flex-wrap items-start justify-between gap-x-2 gap-y-1 border-b border-white/5 px-4 py-3">
         <div>
           <h2 className="text-sm font-semibold tracking-wide text-slate-100">
             {title}

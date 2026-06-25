@@ -81,12 +81,12 @@ export function ABPanel() {
         )
       }
       right={
-        <div className="flex items-center gap-2 text-[11px]">
-          <span className="flex items-center gap-1 text-emerald-300">
+        <div className="flex flex-wrap items-center justify-end gap-x-2 gap-y-1 text-[11px]">
+          <span className="flex items-center gap-1 whitespace-nowrap text-emerald-300">
             <span className="h-2 w-2 rounded-full bg-emerald-400" />
             treatment = recommender
           </span>
-          <span className="flex items-center gap-1 text-slate-400">
+          <span className="flex items-center gap-1 whitespace-nowrap text-slate-400">
             <span className="h-2 w-2 rounded-full bg-slate-500" />
             control = popularity
           </span>
