@@ -105,9 +105,9 @@ export function LiveWorkflow() {
         </select>
       }
     >
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid min-w-0 gap-4 lg:grid-cols-2">
         {/* Funnel + feed */}
-        <div className="space-y-4">
+        <div className="min-w-0 space-y-4">
           <div>
             <div className="mb-2 flex items-center justify-between">
               <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
@@ -162,7 +162,7 @@ export function LiveWorkflow() {
         </div>
 
         {/* Event ticker + sessions */}
-        <div className="space-y-4">
+        <div className="min-w-0 space-y-4">
           <div>
             <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
               Event ticker
