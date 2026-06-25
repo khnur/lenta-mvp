@@ -88,3 +88,39 @@ def test_event_rejects_bad_enum_and_range():
             ).status_code
             == 422
         )
+
+
+def test_event_rejects_out_of_range_ids_is_422_not_500():
+    """An id beyond int32 overflows the INTEGER FK column; assign_variant runs
+    before the DataError guard, so an unbounded id used to 500. Now a 422."""
+    from fastapi.testclient import TestClient
+
+    from api.main import app
+
+    base = {"event_type": "impression", "session_id": "ok"}
+    with TestClient(app) as client:
+        assert client.post(
+            "/event", json={**base, "user_id": 99999999999999999999, "video_id": 1}
+        ).status_code == 422
+        assert client.post(
+            "/event", json={**base, "user_id": 1, "video_id": 99999999999999999999}
+        ).status_code == 422
+
+
+def test_event_rejects_non_finite_floats_is_422_not_500():
+    """NaN/Infinity used to 500 (poisoned float column / JSON serialization)."""
+    import json
+
+    from fastapi.testclient import TestClient
+
+    from api.main import app
+
+    base = {"user_id": 1, "video_id": 1, "event_type": "play", "session_id": "ok"}
+    with TestClient(app) as client:
+        # send raw bodies because json.dumps won't emit NaN/Infinity by default
+        for bad in ('{"watch_fraction": NaN}', '{"watch_seconds": Infinity}'):
+            body = json.dumps(base)[:-1] + ", " + bad[1:]
+            r = client.post(
+                "/event", content=body, headers={"Content-Type": "application/json"}
+            )
+            assert r.status_code == 422, (bad, r.status_code)

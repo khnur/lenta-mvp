@@ -4,9 +4,13 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import math
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from lenta_core.config import settings
 from lenta_core.db import get_session, init_db
@@ -79,6 +83,26 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+def _json_safe(obj):
+    """Replace non-finite floats with their string form so a response can be
+    JSON-encoded (Starlette uses allow_nan=False)."""
+    if isinstance(obj, float) and not math.isfinite(obj):
+        return repr(obj)
+    if isinstance(obj, dict):
+        return {k: _json_safe(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_json_safe(v) for v in obj]
+    return obj
+
+
+@app.exception_handler(RequestValidationError)
+async def _validation_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+    """Clean 422 for invalid bodies. A NaN/Infinity in the request echoes back
+    into the error's ``input`` field; without sanitizing it, encoding the error
+    response itself raises and the client sees a 500 instead of a 422."""
+    return JSONResponse(status_code=422, content={"detail": _json_safe(jsonable_encoder(exc.errors()))})
 
 for module in (health, feed, events, metrics, models, control, pipeline, dashboard):
     app.include_router(module.router)
