@@ -48,6 +48,7 @@ export function ModelTimeline() {
   return (
     <Panel
       title="Model timeline"
+      tourId="tour-timeline"
       subtitle={
         models.reconnecting ? (
           <span className="text-amber-400">reconnecting…</span>

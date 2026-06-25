@@ -67,6 +67,7 @@ export function ScenarioControls({
     <Panel
       title="Scenario controls"
       subtitle="the demo cockpit"
+      tourId="tour-scenarios"
       right={
         live ? (
           <Badge tone={live.running ? "green" : "slate"}>
@@ -180,7 +181,10 @@ export function ScenarioControls({
         </div>
 
         {/* Highlighted demo flow */}
-        <div className="rounded-lg border border-violet-500/30 bg-violet-500/10 p-3">
+        <div
+          data-tour="tour-demo"
+          className="rounded-lg border border-violet-500/30 bg-violet-500/10 p-3"
+        >
           <div className="mb-2 flex items-center gap-2">
             <Badge tone="purple">Run the demo</Badge>
             <span className="text-xs text-slate-300">

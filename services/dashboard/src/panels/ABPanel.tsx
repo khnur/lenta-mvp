@@ -72,6 +72,7 @@ export function ABPanel() {
   return (
     <Panel
       title="A/B test"
+      tourId="tour-ab"
       subtitle={
         metrics.reconnecting ? (
           <span className="text-amber-400">reconnecting…</span>
