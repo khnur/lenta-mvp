@@ -4,6 +4,7 @@ import time
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from lenta_core.config import settings
@@ -56,6 +57,28 @@ def get_feed(
     ids = [it["video_id"] for it in feed]
     vids = {vv.id: vv for vv in db.execute(select(Video).where(Video.id.in_(ids))).scalars()}
 
+    # Materialise the response BEFORE the (failure-prone) impression insert, so a
+    # concurrent reset that invalidates these rows can't corrupt the feed we
+    # return (a rollback below would otherwise expire these ORM objects).
+    items: list[VideoOut] = []
+    for it in feed:
+        vv = vids.get(it["video_id"])
+        if not vv:
+            continue
+        items.append(
+            VideoOut(
+                id=vv.id,
+                title=vv.title,
+                creator_id=vv.creator_id,
+                genres=vv.genres,
+                tags=vv.tags,
+                duration_seconds=vv.duration_seconds,
+                upload_time=vv.upload_time,
+                score=it["score"],
+                stage=it["stage"],
+            )
+        )
+
     now = utcnow()
     impressions = [
         {
@@ -75,25 +98,12 @@ def get_feed(
     # Only log impressions for a real user (avoid a FK violation on ad-hoc /feed
     # previews for non-existent user_ids — the funnel still returns a cold feed).
     if impressions and db.get(User, user_id) is not None:
-        insert_events(db, impressions)
-        db.commit()
-
-    items: list[VideoOut] = []
-    for it in feed:
-        vv = vids.get(it["video_id"])
-        if not vv:
-            continue
-        items.append(
-            VideoOut(
-                id=vv.id,
-                title=vv.title,
-                creator_id=vv.creator_id,
-                genres=vv.genres,
-                tags=vv.tags,
-                duration_seconds=vv.duration_seconds,
-                upload_time=vv.upload_time,
-                score=it["score"],
-                stage=it["stage"],
-            )
-        )
+        try:
+            insert_events(db, impressions)
+            db.commit()
+        except IntegrityError:
+            # A concurrent reset can wipe the user/videos between the check above
+            # and this insert; drop the impression log rather than failing the
+            # feed (matches /event's behaviour — never 500 on a stale FK).
+            db.rollback()
     return FeedResponse(user_id=user_id, variant=v, k=k, items=items, funnel=FunnelDebug(**debug))
