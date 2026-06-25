@@ -18,8 +18,10 @@ import {
   useContext,
   useEffect,
   useLayoutEffect,
+  useRef,
   useState,
   type ReactNode,
+  type RefObject,
 } from "react";
 
 const SEEN_KEY = "lenta_onboarding_seen_v1";
@@ -152,26 +154,81 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
 }
 
 // --------------------------------------------------------------------------- //
+// Focus management for the modal overlays                                     //
+// --------------------------------------------------------------------------- //
+const FOCUSABLE =
+  'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]';
+
+/**
+ * Make a container behave like a proper modal dialog (per the ARIA `dialog`
+ * pattern): move focus inside on open, wrap Tab/Shift+Tab within it, and
+ * restore focus to wherever it was when the dialog closes.
+ */
+function useFocusTrap(ref: RefObject<HTMLElement>) {
+  useEffect(() => {
+    const node = ref.current;
+    if (!node) return;
+    const prev = document.activeElement as HTMLElement | null;
+
+    const focusable = () =>
+      Array.from(node.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(
+        (el) => el.tabIndex >= 0 && el.offsetParent !== null
+      );
+
+    const initial =
+      node.querySelector<HTMLElement>("[data-autofocus]") ?? focusable()[0] ?? node;
+    initial.focus();
+
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== "Tab") return;
+      const items = focusable();
+      if (items.length === 0) {
+        e.preventDefault();
+        return;
+      }
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+    node.addEventListener("keydown", onKey);
+    return () => {
+      node.removeEventListener("keydown", onKey);
+      // Return focus to the trigger so it isn't dropped to the top of the page.
+      if (prev && typeof prev.focus === "function") prev.focus();
+    };
+  }, [ref]);
+}
+
+// --------------------------------------------------------------------------- //
 // Welcome card                                                                //
 // --------------------------------------------------------------------------- //
 function Welcome({ onStart, onSkip }: { onStart: () => void; onSkip: () => void }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useFocusTrap(ref);
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") onSkip();
-      if (e.key === "Enter") onStart();
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onStart, onSkip]);
+  }, [onSkip]);
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onSkip} />
       <div
+        ref={ref}
         role="dialog"
         aria-modal="true"
         aria-label="Welcome to Lenta"
-        className="relative z-[101] w-full max-w-lg rounded-2xl border border-white/10 bg-bg-panel p-6 shadow-2xl shadow-black/60"
+        tabIndex={-1}
+        className="relative z-[101] w-full max-w-lg rounded-2xl border border-white/10 bg-bg-panel p-6 shadow-2xl shadow-black/60 focus:outline-none"
       >
         <div className="mb-1 flex items-center gap-2">
           <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500/30 to-violet-500/20 text-lg">
@@ -213,7 +270,7 @@ function Welcome({ onStart, onSkip }: { onStart: () => void; onSkip: () => void 
           </button>
           <button
             onClick={onStart}
-            autoFocus
+            data-autofocus
             className="rounded-md bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow transition hover:bg-sky-500"
           >
             Take the tour →
@@ -245,6 +302,8 @@ function Spotlight({
   onClose: () => void;
 }) {
   const [rect, setRect] = useState<Rect | null>(null);
+  const ttRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(ttRef);
 
   // Measure the current target (and keep it fresh on scroll/resize).
   useLayoutEffect(() => {
@@ -290,11 +349,12 @@ function Spotlight({
     };
   }, [step.target]);
 
-  // Keyboard navigation.
+  // Keyboard navigation. Enter/Space are left to the focused button (which the
+  // focus trap selects on open) so a single keypress never advances twice.
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") onClose();
-      else if (e.key === "ArrowRight" || e.key === "Enter") onNext();
+      else if (e.key === "ArrowRight") onNext();
       else if (e.key === "ArrowLeft") onPrev();
     }
     window.addEventListener("keydown", onKey);
@@ -349,10 +409,12 @@ function Spotlight({
 
       {/* Tooltip card */}
       <div
+        ref={ttRef}
         role="dialog"
         aria-modal="true"
         aria-label={step.title}
-        className="pointer-events-auto absolute w-[360px] max-w-[calc(100vw-24px)] rounded-xl border border-white/10 bg-bg-panel p-4 shadow-2xl shadow-black/60 transition-all duration-300 ease-out"
+        tabIndex={-1}
+        className="pointer-events-auto absolute w-[360px] max-w-[calc(100vw-24px)] rounded-xl border border-white/10 bg-bg-panel p-4 shadow-2xl shadow-black/60 transition-all duration-300 ease-out focus:outline-none"
         style={{ top: ttTop, left: ttLeft, width: TT_W }}
       >
         <div className="mb-1 flex items-center justify-between gap-2">
@@ -393,6 +455,7 @@ function Spotlight({
           </button>
           <button
             onClick={onNext}
+            data-autofocus
             className="rounded-md bg-sky-600 px-4 py-1.5 text-sm font-semibold text-white shadow transition hover:bg-sky-500"
           >
             {idx === total - 1 ? "Done ✓" : "Next →"}
