@@ -11,6 +11,14 @@ recommendations”* (client: Azimut Tech). Optimized to **run locally with one
 command**, **deploy to Railway cleanly**, and **demo well** — the model visibly
 adapts when user behavior shifts.
 
+## 🔗 Live demo, presentation & guides
+
+- **Live dashboard** → https://lenta-mvp.xyz &nbsp;·&nbsp; **API + interactive docs** → https://api.lenta-mvp.xyz/docs
+- **Presentation** → [`docs/Lenta-Presentation.pdf`](docs/Lenta-Presentation.pdf) &nbsp;·&nbsp; editable [`docs/Lenta-Presentation.pptx`](docs/Lenta-Presentation.pptx)
+- **60-second reviewer quick-start** → [`docs/QUICKSTART.md`](docs/QUICKSTART.md)
+- **Integrate Lenta into your platform** → [`docs/INTEGRATION.md`](docs/INTEGRATION.md)
+- **Scale to thousands → millions of users** → [`docs/SCALING.md`](docs/SCALING.md)
+
 ---
 
 ## What it does (the funnel + two loops)
