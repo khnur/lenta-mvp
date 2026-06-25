@@ -242,6 +242,16 @@ shared `core` package is always in the build context.
 5. **Deploy order:** Postgres + Redis → api (+ domain) → trainer (seeds + trains
    v1 on first boot) → dashboard (+ domain). Open the dashboard URL and run the demo.
 
+> **Watch paths — important.** Every service shares the `packages/core` library, so
+> if you set per-service **watch paths** (to avoid redeploying every service on each
+> commit), each service must watch **both** its own dir **and** the shared package:
+> `api` → `/packages/**`, `/services/api/**`; `trainer` → `/packages/**`,
+> `/services/trainer/**`; `dashboard` → `/packages/**`, `/services/dashboard/**`.
+> Omitting `/packages/**` means a change to the shared core (e.g. a config default or
+> the ranker) is silently **skipped** for that service — it keeps running stale code
+> while the others update. If you leave watch paths empty, every service redeploys on
+> every commit (safe, just slower).
+
 Tip: setting `PORT` / `VITE_API_URL` **before** the first deploy avoids a redeploy
 (those values are baked at build/boot time). CLI deploys: `railway up --service
 <name> --detach` from the repo root.
