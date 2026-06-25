@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 # --------------------------------------------------------------------------- #
@@ -69,6 +69,21 @@ class EventIn(BaseModel):
     variant: str | None = Field(None, pattern="^(control|treatment)$")
     ts: datetime | None = None
     context: dict[str, Any] | None = None
+
+    @field_validator("ts")
+    @classmethod
+    def _ts_in_sane_range(cls, v: datetime | None) -> datetime | None:
+        """Reject a nonsensical event timestamp. A far-future ts (e.g. year 9999)
+        is stored fine but overflows pandas (~2262) when the trainer loads it,
+        which used to fail the whole retrain — bound it at the door instead."""
+        if v is None:
+            return v
+        vv = v if v.tzinfo else v.replace(tzinfo=timezone.utc)
+        lo = datetime(2000, 1, 1, tzinfo=timezone.utc)
+        hi = datetime.now(timezone.utc) + timedelta(days=1)  # allow minor clock skew
+        if not (lo <= vv <= hi):
+            raise ValueError("ts must be between 2000-01-01 and ~now")
+        return v
 
 
 class EventAck(BaseModel):

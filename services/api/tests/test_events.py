@@ -107,6 +107,53 @@ def test_event_rejects_out_of_range_ids_is_422_not_500():
         ).status_code == 422
 
 
+def test_event_rejects_out_of_range_ts_is_422():
+    """A far-future ts used to be stored and then overflow pandas in the
+    trainer, failing every retrain. It must be rejected at the door."""
+    from fastapi.testclient import TestClient
+
+    from api.main import app
+
+    base = {"user_id": 1, "video_id": 1, "event_type": "play", "session_id": "ok",
+            "watch_fraction": 0.5}
+    with TestClient(app) as client:
+        assert client.post("/event", json={**base, "ts": "9999-12-31T23:59:59Z"}).status_code == 422
+        assert client.post("/event", json={**base, "ts": "0001-01-01T00:00:00Z"}).status_code == 422
+        # a normal recent ts is fine
+        assert client.post("/event", json={**base, "ts": "2026-06-01T12:00:00Z"}).status_code == 200
+
+
+def test_training_load_drops_poison_ts():
+    """Defence in depth: even if a poison ts reaches the DB, load_events_df must
+    coerce + drop it instead of raising (which broke retrains)."""
+    from datetime import datetime, timezone
+
+    from sqlalchemy import select
+
+    from lenta_core.db import session_scope
+    from lenta_core.ingest import load_events_df
+    from lenta_core.models import Event, User, Video
+
+    with session_scope() as s:
+        u = s.execute(select(User)).scalars().first()
+        v = s.execute(select(Video)).scalars().first()
+        if not u or not v:
+            import pytest
+
+            pytest.skip("no seed data")
+        bad = Event(
+            user_id=u.id, video_id=v.id, event_type="impression",
+            session_id="poison", variant="control",
+            ts=datetime(9999, 12, 31, 23, 59, 59, tzinfo=timezone.utc),
+        )
+        s.add(bad)
+        s.flush()
+        bad_id = bad.id
+        df = load_events_df(s, limit=1000)  # must not raise
+        assert "poison" not in set(df.get("session_id", []))
+        s.delete(s.get(Event, bad_id))  # clean up so it can't linger
+
+
 def test_event_rejects_non_finite_floats_is_422_not_500():
     """NaN/Infinity used to 500 (poisoned float column / JSON serialization)."""
     import json
