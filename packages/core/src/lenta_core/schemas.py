@@ -47,15 +47,23 @@ class FeedResponse(BaseModel):
 # --------------------------------------------------------------------------- #
 # Ingestion                                                                    #
 # --------------------------------------------------------------------------- #
+# users.id / videos.id are Postgres INTEGER columns; an id beyond int32 can't
+# match a real row and would overflow the column (DataError -> 500), so bound
+# the request ids here and reject them with a clean 422 instead.
+PG_INT32_MAX = 2_147_483_647
+
+
 class EventIn(BaseModel):
-    user_id: int
-    video_id: int
+    user_id: int = Field(ge=1, le=PG_INT32_MAX)
+    video_id: int = Field(ge=1, le=PG_INT32_MAX)
     event_type: Literal["impression", "click", "play"]
     # bounded to the DB column (varchar 64) so an oversized value is rejected with
     # a clean 422 instead of overflowing the column and surfacing as a 500.
     session_id: str = Field(min_length=1, max_length=64)
-    watch_seconds: float = Field(0.0, ge=0.0)
-    watch_fraction: float = Field(0.0, ge=0.0, le=1.0)
+    # allow_inf_nan=False: reject NaN/Infinity, which otherwise poison the float
+    # columns / metrics and break JSON response serialization (500).
+    watch_seconds: float = Field(0.0, ge=0.0, allow_inf_nan=False)
+    watch_fraction: float = Field(0.0, ge=0.0, le=1.0, allow_inf_nan=False)
     # only the two A/B variants are valid; anything else (incl. an over-length
     # string) is a 422, matching the /feed contract and never reaching the DB.
     variant: str | None = Field(None, pattern="^(control|treatment)$")

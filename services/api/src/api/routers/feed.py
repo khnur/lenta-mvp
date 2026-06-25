@@ -10,6 +10,7 @@ from lenta_core.config import settings
 from lenta_core.features.session import read_session_features
 from lenta_core.ingest import insert_events
 from lenta_core.ml.funnel import recommend
+from lenta_core.schemas import PG_INT32_MAX
 from lenta_core.models import User, Video, utcnow
 from lenta_core.schemas import FeedResponse, FunnelDebug, VideoOut
 
@@ -22,7 +23,7 @@ router = APIRouter(tags=["serving"])
 
 @router.get("/feed", response_model=FeedResponse)
 def get_feed(
-    user_id: int = Query(..., ge=1),
+    user_id: int = Query(..., ge=1, le=PG_INT32_MAX),
     k: int = Query(10, ge=1, le=50),
     variant: str | None = Query(None, pattern="^(control|treatment)$"),
     session_id: str | None = Query(None),
