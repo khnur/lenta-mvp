@@ -88,6 +88,7 @@ export function LiveWorkflow() {
     <Panel
       title="Live workflow"
       subtitle={subtitle}
+      tourId="tour-workflow"
       className="xl:col-span-2"
       right={
         <select

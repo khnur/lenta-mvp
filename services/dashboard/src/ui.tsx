@@ -70,15 +70,18 @@ export function Panel({
   right,
   children,
   className = "",
+  tourId,
 }: {
   title: string;
   subtitle?: ReactNode;
   right?: ReactNode;
   children: ReactNode;
   className?: string;
+  tourId?: string;
 }) {
   return (
     <section
+      data-tour={tourId}
       className={`flex flex-col rounded-xl border border-white/5 bg-bg-panel shadow-lg shadow-black/30 ${className}`}
     >
       <header className="flex items-start justify-between gap-2 border-b border-white/5 px-4 py-3">

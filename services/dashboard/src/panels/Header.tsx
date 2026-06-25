@@ -1,5 +1,6 @@
 import { getHealth, getPipelineStatus, getReport, getSimStatus } from "../api";
 import { usePolling } from "../hooks/usePolling";
+import { useOnboarding } from "../onboarding/Onboarding";
 import { Badge } from "../ui";
 
 export function Header() {
@@ -7,6 +8,7 @@ export function Header() {
   const sim = usePolling(getSimStatus, 2000);
   const pipeline = usePolling(getPipelineStatus, 2000);
   const report = usePolling(getReport, 2000);
+  const { start: startTour, seen } = useOnboarding();
 
   const modelVersion =
     health.data?.model_version ?? pipeline.data?.active_model_version ?? null;
@@ -41,30 +43,49 @@ export function Header() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <Badge tone={modelVersion !== null ? "green" : "slate"}>
-            model {modelVersion !== null ? `v${modelVersion}` : "—"}
-          </Badge>
-          <Badge tone="blue">{totalEvents.toLocaleString()} events</Badge>
-          <Badge tone={running ? "green" : "slate"}>
-            sim {running ? "running" : "stopped"} · {sim.data?.rate ?? 0}/s ·{" "}
-            {sim.data?.scenario ?? "—"}
-          </Badge>
-          {health.data ? (
-            <Badge
-              tone={
-                health.data.status === "ok" || health.data.model_ready
-                  ? "green"
-                  : "amber"
-              }
-            >
-              db {health.data.db} · redis {health.data.redis}
+          <button
+            onClick={startTour}
+            title="Take a guided tour of the dashboard"
+            className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-medium transition ${
+              seen
+                ? "border-white/10 bg-bg-elevated text-slate-300 hover:border-sky-400/50 hover:text-sky-200"
+                : "border-sky-400/60 bg-sky-500/15 text-sky-200 hover:bg-sky-500/25"
+            }`}
+          >
+            <span aria-hidden>✨</span> Tour
+          </button>
+          <div
+            data-tour="tour-status"
+            className="flex flex-wrap items-center gap-2"
+          >
+            <Badge tone={modelVersion !== null ? "green" : "slate"}>
+              model {modelVersion !== null ? `v${modelVersion}` : "—"}
             </Badge>
-          ) : null}
+            <Badge tone="blue">{totalEvents.toLocaleString()} events</Badge>
+            <Badge tone={running ? "green" : "slate"}>
+              sim {running ? "running" : "stopped"} · {sim.data?.rate ?? 0}/s ·{" "}
+              {sim.data?.scenario ?? "—"}
+            </Badge>
+            {health.data ? (
+              <Badge
+                tone={
+                  health.data.status === "ok" || health.data.model_ready
+                    ? "green"
+                    : "amber"
+                }
+              >
+                db {health.data.db} · redis {health.data.redis}
+              </Badge>
+            ) : null}
+          </div>
         </div>
       </div>
 
       {/* "What changed" banner from /report */}
-      <div className="rounded-xl border border-sky-500/30 bg-gradient-to-r from-sky-500/15 to-violet-500/10 px-4 py-3">
+      <div
+        data-tour="tour-report"
+        className="rounded-xl border border-sky-500/30 bg-gradient-to-r from-sky-500/15 to-violet-500/10 px-4 py-3"
+      >
         <div className="flex items-center gap-3">
           <span className="shrink-0 text-[11px] font-semibold uppercase tracking-wider text-sky-300">
             What changed
