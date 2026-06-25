@@ -49,7 +49,12 @@ class Settings(BaseSettings):
     # cap retrain input to the most recent N events so sustained live traffic
     # can't grow training time/memory unbounded (recency weighting already
     # discounts old events, so this loses almost nothing).
-    train_max_events: int = Field(default=150_000, alias="TRAIN_MAX_EVENTS")
+    # Train on the most recent N events. Kept well below the storage retention so
+    # retrains reflect *recent* behavior quickly — a freshly-injected preference
+    # shift becomes a meaningful fraction of the training window within seconds,
+    # so the model (and the dashboard) adapt visibly. Plenty of data for this
+    # catalog size; raise it for larger catalogs where more history helps.
+    train_max_events: int = Field(default=40_000, alias="TRAIN_MAX_EVENTS")
     # keep the serialized artifact (bytea) for only the most recent N versions;
     # older rows keep their metrics (for the timeline) but free the ~1.4 MB blob.
     keep_model_artifacts: int = Field(default=12, alias="KEEP_MODEL_ARTIFACTS")

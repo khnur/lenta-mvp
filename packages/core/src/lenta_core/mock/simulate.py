@@ -229,13 +229,19 @@ class World:
         self.scenario = scenario
         if scenario == "genre_shift":
             target = int(rng.integers(0, self.n_genres))
-            # swing roughly half the audience toward `target`
-            mask = rng.random(len(self.user_ids)) < 0.5
-            alpha = float(np.clip(0.35 * intensity, 0.1, 0.9))
+            # swing a large, intensity-scaled cohort hard toward `target`
+            cohort = float(np.clip(0.5 + 0.09 * intensity, 0.5, 0.88))
+            mask = rng.random(len(self.user_ids)) < cohort
+            alpha = float(np.clip(0.4 * intensity, 0.15, 0.95))
             onehot = np.zeros(self.n_genres)
             onehot[target] = 1.0
             self.U[mask] = (1 - alpha) * self.U[mask] + alpha * onehot
             self.U = self.U / np.clip(self.U.sum(axis=1, keepdims=True), 1e-9, None)
+            # make the shifted cohort more active so the new preference shows up
+            # quickly in the recent training window (snappy, visible adaptation)
+            self.activity = self.activity.copy()
+            self.activity[mask] *= 2.0
+            self.activity = self.activity / self.activity.sum()
             self.scenario_detail = {
                 "genre": self.genre_names[target],
                 "genre_idx": target,
