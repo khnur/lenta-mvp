@@ -10,6 +10,7 @@ export interface Health {
   redis: boolean;
   model_ready: boolean;
   model_version: number | null;
+  demo_lock?: boolean;
 }
 
 // --- Feed --------------------------------------------------------------------

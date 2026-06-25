@@ -30,6 +30,11 @@ class Settings(BaseSettings):
     backfill_days: int = Field(default=30, alias="LENTA_BACKFILL_DAYS")
     backfill_events: int = Field(default=40_000, alias="LENTA_BACKFILL_EVENTS")
 
+    # When true, the destructive /reset endpoint is disabled (returns 403) so a
+    # public demo can't be wiped by a visitor. Off by default (local/dev keep the
+    # full reset flow); set DEMO_LOCK=true on a public deployment.
+    demo_lock: bool = Field(default=False, alias="DEMO_LOCK")
+
     # --- trainer ---
     seed_on_boot: bool = Field(default=True, alias="SEED_ON_BOOT")
     retrain_interval_minutes: int = Field(default=5, alias="RETRAIN_INTERVAL_MINUTES")

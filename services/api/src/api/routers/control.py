@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from lenta_core import simctl
+from lenta_core.config import settings
 from lenta_core.jobs import enqueue_job
 from lenta_core.schemas import RetrainAck, SimControlIn, SimScenarioIn, SimStatus
 
@@ -31,6 +32,11 @@ def post_retrain(db: Session = Depends(get_db)) -> RetrainAck:
 @router.post("/reset", response_model=RetrainAck)
 def post_reset(db: Session = Depends(get_db)) -> RetrainAck:
     """Queue a full reset + reseed + retrain (handled by the trainer)."""
+    if settings.demo_lock:
+        raise HTTPException(
+            status_code=403,
+            detail="Reset is disabled on this deployment (DEMO_LOCK).",
+        )
     job = enqueue_job(db, "reset", {"source": "api"})
     db.commit()
     return RetrainAck(job_id=job.id, status=job.status)

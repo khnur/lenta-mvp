@@ -4,6 +4,8 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from lenta_core.config import settings
+
 from ..deps import get_db, get_state
 from ..state import AppState
 
@@ -23,6 +25,7 @@ def health(db: Session = Depends(get_db), state: AppState = Depends(get_state)) 
         "redis": state.ping_redis(),
         "model_ready": state.model.ready,
         "model_version": state.model.version,
+        "demo_lock": settings.demo_lock,
     }
 
 
