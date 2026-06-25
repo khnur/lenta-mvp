@@ -1,5 +1,6 @@
 import { useState } from "react";
 import {
+  getHealth,
   getSimStatus,
   reset,
   retrain,
@@ -26,12 +27,15 @@ export function ScenarioControls({
   onStatusChange?: (s: SimStatus) => void;
 }) {
   const status = usePolling(getSimStatus, 2000);
+  const health = usePolling(getHealth, 5000);
   const [rate, setRate] = useState<number>(20);
   const [intensity, setIntensity] = useState<number>(0.6);
   const [busy, setBusy] = useState<Busy>(null);
   const [lastAction, setLastAction] = useState<string | null>(null);
 
   const live = status.data;
+  // /reset is disabled on locked (public) deployments — reflect that in the UI.
+  const resetLocked = health.data?.demo_lock === true;
 
   async function run(label: string, fn: () => Promise<SimStatus | unknown>) {
     setBusy(label);
@@ -234,11 +238,12 @@ export function ScenarioControls({
               Retrain
             </button>
             <button
-              disabled={busy !== null}
+              disabled={busy !== null || resetLocked}
               onClick={confirmReset}
+              title={resetLocked ? "Reset is disabled on the public demo (DEMO_LOCK)" : undefined}
               className={`${btn} bg-red-700 text-white hover:bg-red-600`}
             >
-              Reset
+              {resetLocked ? "Reset 🔒" : "Reset"}
             </button>
           </div>
         </div>
